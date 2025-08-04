@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="https://digitaldepot.id/storage/images/favicon.png">
+  <title>🧹 R2 Multipart Cleaner</title>
+  <style>
+    /* Global styles for the body and overall layout */
+    body {
+      font-family: 'Inter', sans-serif; /* Modern sans-serif font */
+      background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460); /* Deep, subtle gradient background */
+      color: #e0e0e0; /* Light grey for text */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center; /* Center content vertically */
+      min-height: 100vh; /* Full viewport height */
+      margin: 0;
+      padding: 20px; /* Add some padding around the edges */
+      box-sizing: border-box; /* Include padding in element's total width and height */
+    }
+
+    /* Main container for the cleaner content */
+    .cleaner-container {
+      background: linear-gradient(145deg, #2c2c2c, #3a3a3a); /* Gradient for the container background */
+      padding: 40px;
+      border-radius: 18px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), /* Stronger, more diffused shadow */
+                  0 0 0 8px rgba(255, 107, 107, 0.1); /* Subtle red glow */
+      width: 90%; /* Responsive width */
+      max-width: 1600px; /* Max width for larger screens (you can adjust this for wider overall layout) */
+      text-align: center;
+      position: relative;
+      transform-style: preserve-3d;
+      transform: rotateX(3deg) rotateY(3deg) translateZ(0); /* Slight initial tilt */
+      transition: transform 0.5s ease, box-shadow 0.5s ease;
+    }
+
+    .cleaner-container:hover {
+      transform: rotateX(0deg) rotateY(0deg) translateZ(10px); /* Brings the container slightly forward */
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6),
+                  0 0 0 10px rgba(255, 107, 107, 0.2);
+    }
+
+    h1 {
+      font-size: 2.2em;
+      color: #ff6b6b; /* Red for the title */
+      margin-bottom: 15px;
+      text-shadow: 0 0 10px rgba(255, 107, 107, 0.6);
+    }
+
+    p {
+      font-size: 1.1em;
+      color: #bbb;
+      margin-bottom: 25px;
+    }
+
+    /* Table styles */
+    table {
+      width: 100%;
+      border-collapse: separate; /* Use separate for rounded corners on cells */
+      border-spacing: 0;
+      margin-top: 20px;
+      background: #3e3e3e; /* Darker background for table */
+      border-radius: 12px;
+      overflow: hidden; /* Ensures rounded corners are visible */
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+      table-layout: fixed; /* Important for fixed column widths */
+    }
+
+    th, td {
+      padding: 15px;
+      text-align: left;
+      border-bottom: 1px solid #555; /* Subtle separator */
+      overflow: hidden; /* Hide overflow for fixed layout */
+      text-overflow: ellipsis; /* Add ellipsis for overflowing text in Key column */
+    }
+
+    th {
+      background: linear-gradient(90deg, #444, #555); /* Gradient for table headers */
+      color: #f0f0f0;
+      font-weight: bold;
+      text-transform: uppercase;
+      font-size: 0.9em;
+      letter-spacing: 0.5px;
+    }
+
+    /* Specific column widths */
+    th:nth-child(1), td:nth-child(1) { /* Key column */
+        width: 35%; /* Adjust as needed */
+    }
+    th:nth-child(2), td:nth-child(2) { /* UploadId column */
+        width: 45%; /* Increased width for UploadId */
+        min-width: 200px; /* Ensure a minimum width */
+    }
+    th:nth-child(3), td:nth-child(3) { /* Action column */
+        width: 20%; /* Fixed width for action button */
+        text-align: center;
+    }
+    td:nth-child(2) { /* Apply word-break only to the UploadId data cell */
+        word-break: break-all; /* Force long strings to wrap */
+    }
+
+
+    /* Rounded corners for first/last header/cell */
+    th:first-child { border-top-left-radius: 12px; }
+    th:last-child { border-top-right-radius: 12px; }
+    tr:last-child td:first-child { border-bottom-left-radius: 12px; }
+    tr:last-child td:last-child { border-bottom-right-radius: 12px; }
+
+    tbody tr:nth-child(even) {
+      background-color: #383838; /* Slightly different background for even rows */
+    }
+
+    tbody tr:hover {
+      background-color: #4c4c4c; /* Highlight row on hover */
+      transition: background-color 0.3s ease;
+    }
+
+    /* Button styles */
+    button {
+      padding: 10px 20px;
+      cursor: pointer;
+      background: linear-gradient(45deg, #ff6b6b, #e63946); /* Red gradient for abort button */
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 0.95em;
+      letter-spacing: 0.2px;
+      box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      background: linear-gradient(45deg, #e63946, #ff6b6b); /* Reverse gradient on hover */
+      box-shadow: 0 8px 20px rgba(255, 107, 107, 0.6);
+      transform: translateY(-2px);
+    }
+
+    button:active {
+      transform: translateY(0);
+      box-shadow: 0 3px 10px rgba(255, 107, 107, 0.3);
+    }
+
+    /* Message Box for alerts */
+    #message-box {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #333;
+        padding: 25px;
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        display: none; /* Hidden by default */
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+        border: 2px solid; /* Border will be set by JS */
+    }
+
+    #message-box.success {
+        border-color: #6bff6b;
+    }
+
+    #message-box.error {
+        border-color: #ff6b6b;
+    }
+
+    #message-box p {
+        margin: 0;
+        font-size: 1.1em;
+        color: #eee;
+    }
+
+    #message-box button {
+        background: #4fc3f7;
+        color: #1a1a2e;
+        padding: 8px 15px;
+        border-radius: 5px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    /* No uploads message */
+    .no-uploads-message {
+      font-style: italic;
+      color: #aaa;
+      padding: 20px;
+      background: #333;
+      border-radius: 8px;
+      margin-top: 15px;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .cleaner-container {
+        padding: 25px;
+        width: 95%;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+      p {
+        font-size: 1em;
+      }
+      th, td {
+        padding: 10px;
+        font-size: 0.85em;
+      }
+      button {
+        padding: 8px 15px;
+        font-size: 0.9em;
+      }
+      /* Adjust column widths for smaller screens */
+      th:nth-child(1), td:nth-child(1) { width: 30%; } /* Key */
+      th:nth-child(2), td:nth-child(2) { width: 50%; min-width: 150px; } /* UploadId */
+      th:nth-child(3), td:nth-child(3) { width: 20%; } /* Action */
+    }
+
+    @media (max-width: 480px) {
+      .cleaner-container {
+        padding: 15px;
+      }
+      h1 {
+        font-size: 1.5em;
+      }
+      /* Stack table cells for very small screens */
+      table, thead, tbody, th, td, tr {
+        display: block;
+      }
+      thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+      }
+      tr { border: 1px solid #555; margin-bottom: 10px; border-radius: 8px; }
+      td {
+        border: none;
+        border-bottom: 1px solid #555;
+        position: relative;
+        padding-left: 50%;
+        text-align: right;
+      }
+      td:before {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        width: 45%;
+        padding-right: 10px;
+        white-space: nowrap;
+        text-align: left;
+        font-weight: bold;
+        color: #aaa;
+      }
+      td:nth-of-type(1):before { content: "Key:"; }
+      td:nth-of-type(2):before { content: "UploadId:"; }
+      td:nth-of-type(3):before { content: "Action:"; }
+      td:last-child { border-bottom: none; }
+
+      /* Ensure button is centered in stacked view */
+      td button {
+        margin: auto;
+        display: block;
+        width: fit-content;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="cleaner-container">
+    <h1>R2 Multipart Upload Cleaner</h1>
+    <p>Click "Abort" to delete stuck uploads.</p>
+  <button onclick="abortAllUploads()" style="margin-top: 10px;">Abort All</button>
+    <button onclick="window.location.href='index.html'" style="margin-top: 10px; margin-left: 10px; background: linear-gradient(45deg, #4fc3f7, #2196f3);">
+    Back to Home
+  </button>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Key</th>
+          <th>UploadId</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="uploads"></tbody>
+    </table>
+  </div>
+
+  <div id="message-box">
+    <p id="message-text"></p>
+    <button onclick="document.getElementById('message-box').style.display = 'none';">OK</button>
+  </div>
+
+  <script>
+    // Get references to DOM elements
+    const uploadsTableBody = document.getElementById('uploads');
+    const messageBox = document.getElementById('message-box');
+    const messageText = document.getElementById('message-text');
+
+    // Function to display a custom message box instead of alert()
+    function showMessage(message, type = 'info') {
+      messageText.textContent = message;
+      messageBox.className = ''; // Clear previous classes
+      messageBox.classList.add(type); // Add success or error class
+      messageBox.style.display = 'flex';
+    }
+
+    // Function to fetch unfinished multipart uploads from the server
+    async function fetchUploads() {
+      try {
+        const res = await fetch('/uploads');
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        const uploads = await res.json();
+        uploadsTableBody.innerHTML = ''; // Clear existing rows
+
+        if (uploads.length === 0) {
+          uploadsTableBody.innerHTML = '<tr><td colspan="3" class="no-uploads-message"> No unfinished uploads found.</td></tr>';
+          return;
+        }
+
+        // Populate the table with fetched uploads
+        uploads.forEach(upload => {
+          const row = document.createElement('tr');
+          // Add a data attribute for easier identification or styling if needed
+          row.setAttribute('data-key', upload.Key);
+          row.innerHTML = `
+            <td>${upload.Key}</td>
+            <td>${upload.UploadId}</td>
+            <td><button onclick="abortUpload('${upload.Key}', '${upload.UploadId}')">Abort</button></td>
+          `;
+          uploadsTableBody.appendChild(row);
+        });
+      } catch (error) {
+        console.error("Error fetching uploads:", error);
+        uploadsTableBody.innerHTML = `<tr><td colspan="3" class="no-uploads-message"> Failed to load uploads: ${error.message}</td></tr>`;
+        showMessage(`Failed to load uploads: ${error.message}`, 'error');
+      }
+    }
+
+    // Function to abort a specific multipart upload
+async function abortUpload(key, uploadId) {
+  if (!confirm(`Are you sure you want to abort upload for Key: ${key}?`)) {
+    return;
+  }
+
+  const row = uploadsTableBody.querySelector(`tr[data-key="${key}"]`);
+  const abortButton = row ? row.querySelector('button') : null;
+
+  try {
+    if (abortButton) {
+      abortButton.disabled = true;
+      abortButton.textContent = 'Aborting...';
+    }
+
+    const res = await fetch('/abort', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ Key: key, UploadId: uploadId })
+    });
+
+    const result = await res.json();
+
+    if (res.ok && result.success) {
+      showMessage(` Aborted upload for Key: ${key}`, 'success');
+
+      // Hapus baris langsung dari tabel DOM
+      if (row) {
+        row.remove();
+      }
+
+      // Jika tabel kosong setelah remove, tampilkan pesan "no uploads"
+      if (uploadsTableBody.children.length === 0) {
+        uploadsTableBody.innerHTML = '<tr><td colspan="3" class="no-uploads-message"> No unfinished uploads found.</td></tr>';
+      }
+
+    } else {
+      const errorMessage = result.error || 'Unknown error';
+      showMessage(`❌ Failed to abort upload for Key: ${key}. Error: ${errorMessage}`, 'error');
+    }
+  } catch (error) {
+    showMessage(`❌ Error aborting: ${error.message}`, 'error');
+  } finally {
+    if (abortButton) {
+      abortButton.disabled = false;
+      abortButton.textContent = 'Abort';
+    }
+  }
+}
+
+async function abortAllUploads() {
+  if (!confirm(" Are you sure you want to abort ALL unfinished uploads?")) {
+    return;
+  }
+
+  try {
+    const res = await fetch('/uploads');
+    const uploads = await res.json();
+
+    if (!Array.isArray(uploads) || uploads.length === 0) {
+      showMessage("No uploads to abort.", "info");
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const upload of uploads) {
+      const response = await fetch('/abort', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Key: upload.Key, UploadId: upload.UploadId })
+      });
+
+      const result = await response.json();
+      if (response.ok && result.success) {
+        successCount++;
+
+        // Hapus langsung dari tabel (jika masih ada)
+        const row = uploadsTableBody.querySelector(`tr[data-key="${upload.Key}"]`);
+        if (row) row.remove();
+      } else {
+        failCount++;
+        console.warn(`Failed to abort ${upload.Key}:`, result.error);
+      }
+    }
+
+    // Tampilkan hasil akhir
+    showMessage(` Aborted: ${successCount} |  Failed: ${failCount}`, "success");
+
+    // Kalau semua terhapus, ganti isi tabel
+    if (uploadsTableBody.children.length === 0) {
+      uploadsTableBody.innerHTML = '<tr><td colspan="3" class="no-uploads-message"> No unfinished uploads found.</td></tr>';
+    }
+  } catch (error) {
+    showMessage(` Failed to abort all: ${error.message}`, "error");
+    console.error("Abort all error:", error);
+  }
+}
+
+    // Fetch uploads when the page loads
+    fetchUploads();
+  </script>
+</body>
+</html>

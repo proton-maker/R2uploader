@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Download Page</title>
+</head>
+<body>
+  <h1>File Download</h1>
+  <ul id="file-list"></ul>
+
+  <script>
+    async function fetchFiles() {
+      try {
+        const res = await fetch('/files');
+        const files = await res.json();
+        const listEl = document.getElementById('file-list');
+        listEl.innerHTML = '';
+
+        files.forEach(file => {
+          const li = document.createElement('li');
+          const link = document.createElement('a');
+          link.href = `/download-file?filename=${encodeURIComponent(file.Key)}`;
+          link.textContent = file.Key;
+          li.appendChild(link);
+          listEl.appendChild(li);
+        });
+      } catch (err) {
+        document.getElementById('file-list').innerHTML = '<li>Failed to load file list.</li>';
+        console.error(err);
+      }
+    }
+
+    fetchFiles();
+  </script>
+</body>
+</html>

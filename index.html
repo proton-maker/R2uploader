@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="https://digitaldepot.id/storage/images/favicon.png">
+  <title>Upload ZIP to R2</title>
+  <style>
+    /* Global styles for the body and overall layout */
+    body {
+      font-family: 'Inter', sans-serif; /* Using Inter for a modern look */
+      background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460); /* Deep, subtle gradient background */
+      color: #e0e0e0; /* Light grey for text */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center; /* Center content vertically */
+      min-height: 100vh; /* Full viewport height */
+      margin: 0;
+      perspective: 1200px; /* Establishes the 3D viewing context */
+      overflow: hidden; /* Prevent scrollbars from 3D transforms */
+    }
+
+    /* Styles for the main upload form container */
+    #upload-form {
+      background: linear-gradient(145deg, #2c2c2c, #3a3a3a); /* Gradient for the form background */
+      padding: 40px; /* Increased padding for more space */
+      border-radius: 18px; /* More rounded corners */
+      border: 2px solid rgba(79, 195, 247, 0.3); /* Subtle blue border */
+      width: 450px; /* Slightly wider form */
+      max-width: 90vw; /* Responsive width */
+      text-align: center;
+      position: relative;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), /* Stronger, more diffused shadow */
+                  0 0 0 8px rgba(79, 195, 247, 0.1); /* Glow effect */
+    }
+
+    /* Hover effect for the form */
+    #upload-form:hover {
+      transform: rotateX(0deg) rotateY(0deg) translateZ(20px); /* Brings the form slightly forward */
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6),
+                  0 0 0 10px rgba(79, 195, 247, 0.2);
+    }
+
+    /* Drag over effect */
+    #upload-form.dragover {
+      border-color: #4fc3f7;
+      background: linear-gradient(145deg, #333333, #444444);
+      transform: scale(1.02) translateZ(10px); /* Slightly scale up and bring forward */
+    }
+
+    /* Styles for file input */
+    input[type="file"] {
+      margin-top: 25px;
+      margin-bottom: 15px;
+      padding: 10px;
+      border: 1px solid #555;
+      border-radius: 8px;
+      background-color: #333;
+      color: #e0e0e0;
+      width: calc(100% - 20px); /* Adjust width for padding */
+      box-sizing: border-box; /* Include padding in width calculation */
+    }
+
+    /* Styles for the upload button (and general button properties) */
+    button {
+      background: linear-gradient(45deg, #4fc3f7, #00bcd4); /* Vibrant blue gradient */
+      color: #1a1a2e; /* Dark text for contrast */
+      border: none;
+      padding: 12px 28px; /* Larger padding for button */
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 1.1em;
+      letter-spacing: 0.5px;
+      box-shadow: 0 8px 15px rgba(0, 188, 212, 0.4); /* Shadow for depth */
+      transform: translateZ(15px); /* Brings the button slightly forward in 3D space */
+      transition: all 0.3s ease; /* Smooth transition for all properties */
+      position: relative; /* Needed for pseudo-elements if added */
+      overflow: hidden; /* For ripple effect */
+    }
+
+    /* Hover and active effects for the button */
+    button:hover {
+      background: linear-gradient(45deg, #00bcd4, #4fc3f7); /* Reverse gradient on hover */
+      box-shadow: 0 12px 20px rgba(0, 188, 212, 0.6);
+      transform: translateZ(20px) translateY(-2px); /* Lift and bring further forward */
+    }
+
+    button:active {
+      transform: translateZ(10px) translateY(0); /* Press down effect */
+      box-shadow: 0 5px 10px rgba(0, 188, 212, 0.3);
+    }
+
+    /* Specific styles for the "Go to R2 Stuck Cleaner" button */
+    #goToCleanerButton {
+      background: linear-gradient(45deg, #4fc3f7, #2196f3); /* Different blue gradient */
+      color: white; /* White text for better contrast on this blue */
+      box-shadow: 0 8px 15px rgba(33, 150, 243, 0.4); /* Blue shadow */
+    }
+
+    #goToCleanerButton:hover {
+      background: linear-gradient(45deg, #2196f3, #4fc3f7); /* Reverse gradient on hover */
+      box-shadow: 0 12px 20px rgba(33, 150, 243, 0.6);
+    }
+
+    #goToCleanerButton:active {
+      box-shadow: 0 5px 10px rgba(33, 150, 243, 0.3);
+    }
+
+    /* Styles for status message */
+    #status {
+      margin-top: 20px;
+      font-weight: bold;
+      color: #a7d9f7; /* Lighter blue for status */
+      font-size: 1.1em;
+      text-shadow: 0 0 5px rgba(79, 195, 247, 0.5); /* Subtle text shadow */
+    }
+
+    /* Styles for progress container */
+    #progress-container {
+      margin-top: 20px;
+      width: 100%;
+      background: #444;
+      border-radius: 8px;
+      height: 16px; /* Slightly taller progress bar */
+      overflow: hidden;
+      display: none; /* Hidden by default */
+      box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3); /* Inset shadow for depth */
+    }
+
+    /* Styles for progress bar itself */
+    #progress-bar {
+      background: linear-gradient(90deg, #4fc3f7, #00bcd4); /* Gradient for progress bar */
+      width: 0%;
+      height: 100%;
+      transition: width 0.3s ease-out; /* Smoother progress animation */
+      border-radius: 8px; /* Match container radius */
+    }
+
+    /* Styles for percentage text */
+    #percent {
+      font-size: 14px;
+      margin-top: 8px;
+      color: #bbbbbb; /* Slightly darker grey for percentage */
+    }
+
+    /* Styles for drag info text */
+    #drag-info {
+      font-size: 15px;
+      color: #aaaaaa; /* Medium grey for info text */
+      margin-bottom: 15px;
+      text-shadow: 0 0 2px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 600px) {
+      #upload-form {
+        padding: 30px;
+        width: 95vw; /* Even wider on small screens */
+      }
+      h1 {
+        font-size: 1.8em; /* Adjust heading size */
+      }
+      button {
+        padding: 10px 20px;
+        font-size: 1em;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1> Upload ZIP to R2</h1>
+
+<form id="upload-form">
+  <div id="drag-info">Drag and drop ZIP file here or select manually</div>
+  <input type="file" id="fileInput" name="file" accept=".zip" required />
+  <br />
+
+  <!-- Button container with flexbox for spacing -->
+  <div style="justify-content: center; display: flex; gap: 10px; margin-top: 10px;">
+    <button type="submit">Upload</button>
+    <button type="button" id="goToCleanerButton">
+      Go to R2 Stuck Cleaner
+    </button>
+  </div>
+
+  <div id="progress-container"><div id="progress-bar"></div></div>
+  <div id="percent"></div>
+  <div id="status"></div>
+</form>
+
+  <script>
+    // Get references to DOM elements
+    const uploadForm = document.getElementById('upload-form');
+    const fileInput = document.getElementById('fileInput');
+    const progressBar = document.getElementById('progress-bar');
+    const progressContainer = document.getElementById('progress-container');
+    const percentText = document.getElementById('percent');
+    const statusText = document.getElementById('status');
+    const goToCleanerButton = document.getElementById('goToCleanerButton'); // Get the new button
+
+    // Define maximum file size (5GB)
+    const MAX_SIZE = 5 * 1024 * 1024 * 1024;
+
+    // --- Helper Functions ---
+
+    // Prevents default drag behaviors to allow custom drag-and-drop handling
+    function preventDefaults (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    // Handles the actual file upload process
+    function handleUpload(file) {
+      // Reset status and progress display
+      statusText.innerText = "";
+      percentText.innerText = "";
+      progressBar.style.width = "0%";
+      progressContainer.style.display = "none";
+
+      // Basic file validation
+      if (!file) {
+        statusText.innerText = "Please select a file first!";
+        statusText.style.color = '#ff6b6b'; // Red for error
+        return;
+      }
+
+      if (!file.name.endsWith(".zip")) {
+        statusText.innerText = "Only .zip files are allowed!";
+        statusText.style.color = '#ff6b6b';
+        return;
+      }
+
+      if (file.size > MAX_SIZE) {
+        statusText.innerText = "Maximum size is 5GB!";
+        statusText.style.color = '#ff6b6b';
+        return;
+      }
+
+      progressContainer.style.display = "block";
+      statusText.innerText = "Uploading to local server...";
+      statusText.style.color = '#a7d9f7'; // Lighter blue for status
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "http://localhost:3000/upload", true); // Your local upload endpoint
+
+      // Listen for upload progress from the local server
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable) {
+          const percent = Math.round((e.loaded / e.total) * 100);
+          progressBar.style.width = percent + "%";
+          percentText.innerText = percent + "%";
+        }
+      });
+
+      // Handle response from the local server after upload completes
+      xhr.onload = () => {
+
+        // Validate response type (optional but good practice)
+        const contentType = xhr.getResponseHeader("Content-Type");
+        if (!contentType?.includes("application/json")) {
+          statusText.innerText = "Server sent an unrecognized format.";
+          statusText.style.color = '#ff6b6b';
+          return;
+        }
+
+        try {
+          const response = JSON.parse(xhr.responseText);
+          const actualFileName = response.fileName;
+
+          if (!actualFileName) {
+            statusText.innerText = "Server response format is incorrect.";
+            statusText.style.color = '#ff6b6b';
+            return;
+          }
+
+          // Reset progress bar and start polling for R2 upload status
+          progressBar.style.width = "0%";
+          percentText.innerText = "0%";
+          statusText.innerText = "Upload to R2 is being processed...";
+          statusText.style.color = '#a7d9f7';
+
+          pollServerProgress(actualFileName);
+
+        } catch (err) {
+          statusText.innerText = "Invalid response from server!";
+          statusText.style.color = '#ff6b6b';
+        }
+      };
+
+      // Handle network errors during local server upload
+      xhr.onerror = () => {
+        statusText.innerText = "Upload failed!";
+        statusText.style.color = '#ff6b6b';
+      };
+
+      xhr.send(formData);
+    }
+
+    // Polls the server for R2 upload progress
+    function pollServerProgress(filename) {
+
+      const interval = setInterval(async () => {
+        try {
+          const res = await fetch(`/progress?file=${encodeURIComponent(filename)}`, {
+            headers: { "Cache-Control": "no-cache" } // Prevent caching of progress updates
+          });
+
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          }
+
+          const data = await res.json();
+          const percent = data.percent || 0;
+          const completed = data.completed || false;
+          const stage = data.uploadStage || "r2"; // Default to 'r2' if stage is not provided
+
+          progressBar.style.width = percent + "%";
+          percentText.innerText = percent + "%";
+
+          if (stage === "done" && completed) {
+            clearInterval(interval); // Stop polling when upload is complete
+            statusText.innerText = "Upload to Cloudflare R2 complete!";
+            statusText.style.color = '#6bff6b'; // Green for success
+            return;
+          }
+
+          if (stage === "lokal") { // Assuming 'lokal' means processing on local server before R2
+            statusText.innerText = "Upload to R2 is being processed...";
+            statusText.style.color = '#a7d9f7';
+          } else if (stage === "r2") {
+            statusText.innerText = `Upload to R2: ${percent}%`;
+            statusText.style.color = '#a7d9f7';
+          }
+
+          if (percent >= 100 && !completed) {
+            statusText.innerText = "Waiting for R2 upload completion...";
+            statusText.style.color = '#a7d9f7';
+          }
+
+        } catch (e) {
+          clearInterval(interval);
+          statusText.innerText = "Failed to poll R2 progress.";
+          statusText.style.color = '#ff6b6b';
+        }
+      }, 1500); // Poll every 1.5 seconds
+    }
+
+    // --- Event Listeners ---
+
+    // Prevent default drag behaviors for the form and body
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      uploadForm.addEventListener(eventName, preventDefaults, false);
+      document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    // Add/remove 'dragover' class for visual feedback on drag
+    ['dragenter', 'dragover'].forEach(eventName => {
+      uploadForm.addEventListener(eventName, () => uploadForm.classList.add('dragover'), false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      uploadForm.addEventListener(eventName, () => uploadForm.classList.remove('dragover'), false);
+    });
+
+    // Handle dropped files and initiate upload
+    uploadForm.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      const file = dt.files[0]; // Get the first dropped file
+      fileInput.files = dt.files; // Assign dropped files to the file input
+      handleUpload(file); // Initiate upload with the dropped file
+    }, false);
+
+    // Handle form submission and initiate upload
+    uploadForm.addEventListener('submit', async (e) => {
+      e.preventDefault(); // Prevent default form submission
+      const file = fileInput.files[0]; // Get the selected file from input
+      handleUpload(file); // Initiate upload with the selected file
+    });
+
+    // Add event listener for the "Go to R2 Stuck Cleaner" button
+    goToCleanerButton.addEventListener('click', () => {
+      window.location.href = 'r2-cleaner.html';
+    });
+  </script>
+</body>
+</html>
