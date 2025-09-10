@@ -5,6 +5,10 @@ const fs = require("fs");
 const path = require("path");
 const { S3Client, ListMultipartUploadsCommand, AbortMultipartUploadCommand, GetObjectCommand, ListObjectsV2Command   } = require("@aws-sdk/client-s3");
 const { Upload } = require("@aws-sdk/lib-storage");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const { NodeHttpHandler } = require('@aws-sdk/node-http-handler');
+const cors = require('cors');
+const https = require('https');
 
 const app = express();
 const upload = multer({ dest: "uploads/" });
@@ -26,19 +30,64 @@ function writeLog(message) {
   });
 }
 
+// Validate required environment variables early to avoid opaque 500 errors
+const missingEnv = [];
+if (!R2_ACCOUNT_ID) missingEnv.push('R2_ACCOUNT_ID');
+if (!R2_ACCESS_KEY) missingEnv.push('R2_ACCESS_KEY');
+if (!R2_SECRET_KEY) missingEnv.push('R2_SECRET_KEY');
+if (!R2_BUCKET_NAME) missingEnv.push('R2_BUCKET_NAME');
+if (missingEnv.length) {
+  const msg = `Missing required environment variables: ${missingEnv.join(', ')}`;
+  console.error(msg);
+  writeLog(msg);
+  // Exit so developer fixes env instead of seeing cryptic SDK errors
+  process.exit(1);
+}
+
+
 // Track progress + completed status + upload stage
 const uploadStatus = {}; // { "file.zip": { percent, completed, uploadStage } }
 
+const endpointUrl = process.env.R2_ENDPOINT || `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+
+// Use a Node https.Agent with explicit TLS minimum to avoid handshake mismatches on some Windows/OpenSSL builds
+const httpsAgent = new https.Agent({ keepAlive: true, minVersion: 'TLSv1.2' });
+const httpHandler = new NodeHttpHandler({ httpsAgent });
+
 const r2 = new S3Client({
   region: "auto",
-  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  endpoint: endpointUrl,
   credentials: {
     accessKeyId: R2_ACCESS_KEY,
     secretAccessKey: R2_SECRET_KEY,
-  }
+  },
+  requestHandler: httpHandler,
+  // allow a few attempts at the underlying HTTP layer; we also wrap calls in sendWithRetry above
+  maxAttempts: 3,
 });
 
+// small retry helper for transient network/SSL errors
+async function sendWithRetry(client, command, retries = 2, delayMs = 250) {
+  let lastErr;
+  for (let i = 0; i <= retries; i++) {
+    try {
+      return await client.send(command);
+    } catch (err) {
+      lastErr = err;
+  const note = `sendWithRetry attempt ${i} failed: ${err.stack || err.message}`;
+  console.error(note);
+  writeLog(note);
+      // if last attempt, break and rethrow
+      if (i === retries) break;
+      // short backoff before retry
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+  throw lastErr;
+}
+
 app.use(express.static(__dirname));
+app.use(cors());
 
 app.post("/upload", upload.single("file"), async (req, res) => {
   const file = req.file;
@@ -183,16 +232,39 @@ app.get("/download-file", async (req, res) => {
 });
 
 app.get("/files", async (req, res) => {
+  console.log('GET /files requested, using endpoint', endpointUrl);
+  writeLog(`GET /files requested, endpoint=${endpointUrl}`);
   try {
-    const result = await r2.send(
-      new ListObjectsV2Command({
-        Bucket: R2_BUCKET_NAME
-      })
-    );
+  const result = await sendWithRetry(r2, new ListObjectsV2Command({ Bucket: R2_BUCKET_NAME }));
     res.json(result.Contents || []);
   } catch (err) {
-    writeLog(`Failed to list files: ${err.message}`);
-    res.status(500).json({ error: "Failed to get files" });
+  writeLog(`Failed to list files: ${err.stack || err.message}`);
+  console.error('List files error:', err);
+  res.status(500).json({ error: "Failed to get files", details: err.message });
+  }
+});
+
+// Generate presigned URL for GET (download) with expiry (seconds)
+app.get('/generate-url', async (req, res) => {
+  const filename = req.query.file;
+  let expiry = parseInt(req.query.expiry, 10) || 3600;
+  // Clamp expiry between 1 second and 7 days (604800)
+  if (Number.isNaN(expiry) || expiry < 1) expiry = 3600;
+  const MAX_EXPIRY = 7 * 24 * 60 * 60; // 7 days
+  if (expiry > MAX_EXPIRY) expiry = MAX_EXPIRY;
+
+  if (!filename) return res.status(400).json({ error: 'Missing file parameter' });
+
+  try {
+  const command = new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: filename });
+  // Ensure object exists first (reduce chance of presign failure)
+  await sendWithRetry(r2, new ListObjectsV2Command({ Bucket: R2_BUCKET_NAME, Prefix: filename, MaxKeys: 1 }));
+  const url = await getSignedUrl(r2, command, { expiresIn: expiry });
+    res.json({ url });
+  } catch (err) {
+  writeLog(`Failed to generate signed URL for ${filename}: ${err.stack || err.message}`);
+  console.error('Generate URL error:', err);
+  res.status(500).json({ error: 'Failed to generate signed URL', details: err.message });
   }
 });
 

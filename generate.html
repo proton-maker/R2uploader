@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="https://digitaldepot.id/storage/images/favicon.png">
+  <title>Generate Download URL - R2</title>
+  <style>
+    /* Re-use visual style similar to index.html */
+    body {
+      font-family: 'Inter', sans-serif; 
+      background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460); 
+      color: #e0e0e0; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      min-height: 100vh; 
+      margin: 0;
+    }
+    .card {
+      background: linear-gradient(145deg, #2c2c2c, #3a3a3a); 
+      padding: 32px; 
+      border-radius: 14px; 
+      width: 520px; 
+      max-width: 94vw; 
+      border: 2px solid rgba(79,195,247,0.18); 
+      box-shadow: 0 20px 40px rgba(0,0,0,0.45);
+    }
+    h1 {
+      margin: 0 0 14px 0; 
+      font-size: 1.4rem; 
+      color: #eaf6ff;
+    }
+    label {
+      display: block; 
+      margin-top: 12px; 
+      color: #cfeeff;
+    }
+    select, input[type="number"], textarea {
+      width: 100%; 
+      padding: 10px; 
+      margin-top: 6px; 
+      border-radius: 8px; 
+      border: 1px solid #555; 
+      background: #333; 
+      color: #e0e0e0; 
+      box-sizing: border-box;
+    }
+    .row {
+      display: flex; 
+      gap: 10px; 
+      align-items: center;
+    }
+    .row .half {
+      flex: 1;
+    }
+    button {
+      background: linear-gradient(45deg,#4fc3f7,#00bcd4); 
+      color: #0f1b2b; 
+      border: none; 
+      padding: 10px 16px; 
+      border-radius: 8px; 
+      cursor: pointer; 
+      font-weight: 700;
+    }
+    button.secondary {
+      background: linear-gradient(45deg,#4fc3f7,#2196f3); 
+      color: #fff;
+    }
+    #status {
+      margin-top: 10px; 
+      color: #a7d9f7;
+    }
+    #result {
+      margin-top: 10px; 
+      display: flex; 
+      gap: 8px;
+    }
+    #result textarea {
+      flex: 1; 
+      height: 68px; 
+      resize: vertical;
+    }
+    .small {
+      font-size: 0.9rem; 
+      color: #bcd;
+    }
+    .links {
+      display: flex; 
+      gap: 8px; 
+      margin-top: 12px;
+    }
+    a.nav {
+      color: #a7d9f7; 
+      text-decoration: none; 
+      background: transparent; 
+      padding: 8px 10px; 
+      border-radius: 8px; 
+      border: 1px solid rgba(167,217,247,0.08);
+    }
+    @media (max-width:520px) {
+      .card {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Generate Signed Download URL (Cloudflare R2)</h1>
+
+    <div class="small">Pilih file dari R2, tentukan masa kadaluarsa, lalu klik "Generate" untuk mendapatkan URL yang dapat diunduh.</div>
+
+    <label for="fileSelect">Pilih file</label>
+    <select id="fileSelect"><option value="">Memuat daftar file...</option></select>
+
+    <label for="expirySelect">Pilih masa kadaluarsa URL</label>
+    <div class="row">
+      <div class="half">
+        <select id="expirySelect">
+          <option value="300">5 menit</option>
+          <option value="900">15 menit</option>
+          <option value="3600" selected>1 jam</option>
+          <option value="86400">1 hari</option>
+          <option value="custom">Custom (detik)</option>
+        </select>
+      </div>
+      <div class="half" id="customExpiryWrap" style="display:none">
+        <input type="number" id="customExpiry" min="1" placeholder="Jumlah detik, mis. 1800" />
+      </div>
+    </div>
+
+    <div style="display:flex; gap:8px; margin-top:12px">
+      <button id="generateBtn">Generate URL</button>
+      <button id="refreshBtn" type="button" class="secondary">Refresh daftar</button>
+    </div>
+
+    <div id="status"></div>
+
+    <div id="result" style="display:none">
+      <textarea id="signedUrl" readonly></textarea>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button id="copyBtn">Copy</button>
+        <a id="openBtn" class="nav" target="_blank" rel="noopener">Buka</a>
+      </div>
+    </div>
+
+    <div class="links">
+      <a class="nav" href="index.html">Upload</a>
+      <a class="nav" href="download.html">Daftar Download</a>
+    </div>
+  </div>
+
+  <script>
+    // Assumptions: server exposes GET /files -> JSON array of objects with "Key" property
+    // and GET /generate-url?file=...&expiry=SECONDS -> { url: 'signed-url' }
+
+    const fileSelect = document.getElementById('fileSelect');
+    const expirySelect = document.getElementById('expirySelect');
+    const customExpiryWrap = document.getElementById('customExpiryWrap');
+    const customExpiry = document.getElementById('customExpiry');
+    const generateBtn = document.getElementById('generateBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const statusEl = document.getElementById('status');
+    const resultWrap = document.getElementById('result');
+
+    async function loadFiles() {
+      fileSelect.innerHTML = '<option value="">Memuat daftar file...</option>';
+      statusEl.textContent = 'Memuat daftar file...';
+      try {
+        const res = await fetch('/files', { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const files = await res.json();
+        if (!Array.isArray(files)) throw new Error('Format response tidak benar');
+        fileSelect.innerHTML = '<option value="">-- Pilih file --</option>';
+        files.forEach(f => {
+          const opt = document.createElement('option');
+          // prefer Key like in other pages
+          opt.value = f.Key || f.key || f.Name || f.name || '';
+          opt.textContent = opt.value || JSON.stringify(f);
+          fileSelect.appendChild(opt);
+        });
+        statusEl.textContent = '';
+      } catch (err) {
+        console.error(err);
+        fileSelect.innerHTML = '<option value="">Gagal memuat file</option>';
+        statusEl.textContent = 'Gagal memuat daftar file.';
+        statusEl.style.color = '#ff8b8b';
+      }
+    }
+
+    expirySelect.addEventListener('change', () => {
+      if (expirySelect.value === 'custom') customExpiryWrap.style.display = 'block'; else customExpiryWrap.style.display = 'none';
+    });
+
+    refreshBtn.addEventListener('click', () => { loadFiles(); });
+
+    generateBtn.addEventListener('click', async () => {
+      resultWrap.style.display = 'none';
+      const file = fileSelect.value;
+      if (!file) { statusEl.textContent = 'Pilih file terlebih dahulu.'; statusEl.style.color = '#ffb3b3'; return; }
+      let expiry = expirySelect.value;
+      if (expiry === 'custom') {
+        expiry = parseInt(customExpiry.value || '0', 10);
+        if (!expiry || expiry <= 0) { statusEl.textContent = 'Masukkan jumlah detik yang valid untuk custom expiry.'; statusEl.style.color = '#ffb3b3'; return; }
+      } else {
+        expiry = parseInt(expiry, 10);
+      }
+
+      statusEl.textContent = 'Membuat signed URL...'; statusEl.style.color = '#a7d9f7';
+      try {
+        const encoded = encodeURIComponent(file);
+        const res = await fetch(`/generate-url?file=${encoded}&expiry=${expiry}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const url = data.url || data.signedUrl || data.signed_url || data.signed;
+        if (!url) throw new Error('Response tidak mengandung url');
+        document.getElementById('signedUrl').value = url;
+        document.getElementById('openBtn').href = url;
+        resultWrap.style.display = 'flex';
+        statusEl.textContent = 'Berhasil dibuat.'; statusEl.style.color = '#bff0b3';
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = 'Gagal membuat signed URL.'; statusEl.style.color = '#ff8b8b';
+      }
+    });
+
+    document.getElementById('copyBtn').addEventListener('click', async () => {
+      const ta = document.getElementById('signedUrl');
+      const text = ta.value;
+      if (!text) { statusEl.textContent = 'Tidak ada URL untuk disalin.'; statusEl.style.color = '#ffd'; return; }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          ta.select();
+          document.execCommand('copy');
+        }
+        statusEl.textContent = 'URL disalin ke clipboard.'; statusEl.style.color = '#bff0b3';
+      } catch (e) {
+        console.error('Copy failed', e);
+        statusEl.textContent = 'Salin gagal, salin manual.'; statusEl.style.color = '#ffd';
+      }
+    });
+
+    // Load files on start
+    loadFiles();
+  </script>
+</body>
+</html>

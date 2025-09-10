@@ -10,133 +10,96 @@
 
 UploaderCloudflareR2 is a lightweight backend application built with Node.js and Express that allows users to upload large files (up to 5GB or more) from a web frontend directly to **Cloudflare R2**, using AWS SDK v3's presigned multipart upload streaming capability.
 
+# R2 Uploader - Cloudflare R2 File Manager
+
+Aplikasi web lengkap untuk mengelola file di Cloudflare R2 Object Storage dengan antarmuka yang modern dan mudah digunakan.
+
 ## Features
 
-* Direct file upload via browser-based UI
-* Multipart upload to **Cloudflare R2** (streamed, memory-efficient)
-* Real-time progress tracking (local and R2 stages)
-* Upload status endpoint for each file
-* Temporary local storage with auto-cleanup after success
-* Background upload process (frontend receives immediate response)
-* Basic validation and error handling
+- 📤 **Upload ZIP files** ke Cloudflare R2 dengan progress tracking
+- 📂 **Browse & Download** file dari R2 bucket  
+- 🔗 **Generate Signed URLs** dengan expiry time yang bisa dikustomisasi
+- 🧹 **R2 Cleaner** untuk cleanup multipart uploads yang gagal
+- 🎨 **Modern UI** dengan design konsisten
 
-## Installation
+## Setup
 
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/yourname/UploaderCloudflareR2.git
-cd UploaderCloudflareR2
-```
-
-### 2. Install Dependencies
-
+### 1. Install Dependencies
 ```bash
 npm install
 ```
 
-### 3. Set Up Environment Variables
+### 2. Setup Cloudflare R2 Credentials
 
-Create a `.env` file with your Cloudflare R2 credentials:
+Copy file `.env.example` ke `.env` dan isi dengan credentials R2 Anda:
 
+```bash
+copy .env.example .env
+```
+
+Edit file `.env`:
 ```env
-R2_ACCESS_KEY=your-access-key
-R2_SECRET_KEY=your-secret-key
-R2_BUCKET_NAME=your-bucket-name
-R2_ACCOUNT_ID=your-account-id
+R2_ACCOUNT_ID=your-account-id-here
+R2_ACCESS_KEY=your-access-key-here  
+R2_SECRET_KEY=your-secret-key-here
+R2_BUCKET_NAME=your-bucket-name-here
 ```
 
-You can find this information on the Cloudflare Dashboard > R2 > Buckets > API Keys section.
+### 3. Cara Mendapatkan R2 Credentials
 
-## Usage
+1. **Login ke Cloudflare Dashboard** → R2 Object Storage
+2. **Buat bucket** atau gunakan yang sudah ada (untuk `R2_BUCKET_NAME`)
+3. **Buat API Token:**
+   - Go to **Manage R2 API tokens** → **Create API token**
+   - Pilih permission yang diperlukan
+   - Copy **Account ID** (untuk `R2_ACCOUNT_ID`)
+   - Copy **Access Key ID** (untuk `R2_ACCESS_KEY`)
+   - Copy **Secret Access Key** (untuk `R2_SECRET_KEY`)
 
-### Run the Server
+## Running the Application
 
+### Start Server
 ```bash
-node index.js
+node upload-server.js
 ```
 
-Or use `nodemon` for live-reloading:
+Server akan berjalan di http://localhost:3000
 
-```bash
-npx nodemon index.js
-```
+### Available Pages
 
-Visit:
+- **Upload:** http://localhost:3000/index.html - Upload ZIP files
+- **Download:** http://localhost:3000/download.html - Browse dan download files  
+- **Generate URL:** http://localhost:3000/generate.html - Buat signed download URLs
+- **R2 Cleaner:** http://localhost:3000/r2-cleaner.html - Cleanup stuck uploads
 
-```
-http://localhost:3000
-```
+## Generate URL Features
 
-### Uploading a File
+### Expiry Options
+- **5 menit** - URL kadaluarsa dalam 5 menit
+- **15 menit** - URL kadaluarsa dalam 15 menit  
+- **1 jam** - URL kadaluarsa dalam 1 jam (default)
+- **1 hari** - URL kadaluarsa dalam 24 jam
+- **Custom** - Masukkan jumlah detik manual (max 7 hari)
 
-1. Open the web interface.
-2. Select a `.zip` file to upload.
-3. Monitor real-time progress.
-4. Once local upload reaches 100%, the file will begin uploading to R2 in the background.
-
-### Verifying on R2
-
-The uploaded file will appear in your R2 bucket with the generated filename:
-
-```
-{filename}.zip
-```
-
-## API Endpoints
-
-### POST `/upload`
-
-Upload a file using form-data. Required field:
-
-* `file` (type: `.zip`)
-
-**Response:**
-
-```json
-{
-  "message": "Upload success with AWS SDK v3!",
-  "completed": true,
-  "fileName": "abc123.zip"
-}
-```
-
-### GET `/progress/:fileName`
-
-Check the upload status:
-
-```json
-{
-  "percent": 78,
-  "completed": false,
-  "uploadStage": "r2"
-}
-```
-
-## Project Structure
-
-```
-UploaderCloudflareR2/
-├── index.js          # Main server logic
-├── uploader.js       # Cloudflare R2 upload logic
-├── public/           # Frontend UI
-├── uploads/          # Temporary uploaded files
-├── .env              # R2 credentials (excluded from Git)
-├── .gitignore        # Ignore /private and /uploads
-└── README.md         # Project documentation
-```
-
-## Best Practices
-
-* Only `.zip` files should be uploaded.
-* Files are automatically deleted from `/uploads` after successful R2 upload.
-* Use environment variables to store credentials securely.
-* Keep `/private` folder for local development and tests; it's ignored by Git.
+### Usage
+1. Pilih file dari dropdown (otomatis dimuat dari R2)
+2. Pilih masa kadaluarsa URL
+3. Klik **Generate URL**
+4. Copy URL atau buka langsung di browser baru
 
 ## Troubleshooting
 
-* **Upload stuck?** Make sure the file is under 5GB and your R2 credentials are correct.
-* **Progress not updating?** Confirm your frontend is polling the `/progress/:fileName` endpoint correctly.
+### Error 500 pada /files
+- **Penyebab:** R2 credentials tidak valid atau bucket tidak ada
+- **Solusi:** Periksa file `.env` dan pastikan semua values benar
+
+### "Missing required environment variables"
+- **Penyebab:** File `.env` tidak ada atau kosong  
+- **Solusi:** Copy dari `.env.example` dan isi dengan credentials yang benar
+
+### "Upload failed" 
+- **Penyebab:** Bucket permission atau network issue
+- **Solusi:** Cek R2 API token permissions dan koneksi internet
 
 ## License
 
